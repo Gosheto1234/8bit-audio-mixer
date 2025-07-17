@@ -25,9 +25,6 @@ jobs:
           if (Test-Path requirements.txt) { pip install -r requirements.txt }
           pip install pyinstaller
 
-      - name: 📁 Copy icon
-        run: Copy-Item icon.ico .
-
       - name: 🔨 Build EXE with PyInstaller
         run: pyinstaller --onefile --noconsole --icon=icon.ico audio_mixer.py
 
