@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  build-exe:
+  build-and-release:
     runs-on: windows-latest
 
     steps:
@@ -28,8 +28,20 @@ jobs:
       - name: 🔨 Build EXE with PyInstaller
         run: pyinstaller --onefile --noconsole --icon=icon.ico audiomix.py
 
-      - name: 📤 Upload EXE artifact
+      - name: 📤 Upload EXE as Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: audio-mixer-win32
-          path: dist/audio_mixer.exe
+          path: dist/audiomix.exe
+
+      - name: 🏷️ Create GitHub Release & Upload EXE
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v${{ github.run_number }}            # auto‑incrementing tag: v1, v2, …
+          release-name: Release ${{ github.run_number }}
+          assets: dist/audiomix.exe
+          overwrite: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
