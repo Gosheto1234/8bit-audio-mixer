@@ -1,0 +1,39 @@
+name: Build and Publish EXE
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-exe:
+    runs-on: windows-latest
+
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@v3
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'  # or whatever you're using
+
+      - name: 📦 Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pyinstaller
+
+      - name: 📁 Copy icon
+        # ensure your icon.ico is in the repo root (or adjust path)
+        run: |
+          cp icon.ico .
+
+      - name: 🔨 Build EXE with PyInstaller
+        run: python -m pip install --upgrade pip && if [ -f requirements.txt ]; then pip install -r requirements.txt; fi && pip install pyinstaller
+
+      - name: 📤 Upload EXE artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: audio-mixer-win32
+          path: dist/audio_mixer.exe
