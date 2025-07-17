@@ -42,10 +42,10 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: v${{ github.run_number }}
-          release-name: Release ${{ github.run_number }}
-          assets: dist/audiomix.exe
-          overwrite: true
+          name: Release ${{ github.run_number }}
+          artifacts: dist/audiomix.exe
           draft: false
           prerelease: false
+          skipIfReleaseExists: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
