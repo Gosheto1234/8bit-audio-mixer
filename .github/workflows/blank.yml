@@ -30,7 +30,7 @@ jobs:
 
       - name: 🔨 Build EXE with PyInstaller
         shell: pwsh
-        run: pyinstaller --onefile --noconsole --icon=icon.ico --add-data "VB;VB" audiomix.py
+        run: pyinstaller --onefile --noconsole --icon=icon.ico --add-data "VB;VB" --hidden-import sounddevice audiomix.py
 
       - name: 📤 Upload EXE as Build Artifact
         uses: actions/upload-artifact@v4
