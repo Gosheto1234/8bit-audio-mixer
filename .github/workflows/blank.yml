@@ -1,6 +1,5 @@
 name: Build and Publish EXE
 
-# Grant the token permission to create/releases and upload assets
 permissions:
   contents: write
 
@@ -30,13 +29,8 @@ jobs:
           pip install pyinstaller
 
       - name: 🔨 Build EXE with PyInstaller
-        run: |
-          pyinstaller \
-            --onefile \
-            --noconsole \
-            --icon=VB/icon.ico \
-            --add-data "VB;VB" \
-            audiomix.py
+        shell: pwsh
+        run: pyinstaller --onefile --noconsole --icon=VB/icon.ico --add-data "VB;VB" audiomix.py
 
       - name: 📤 Upload EXE as Build Artifact
         uses: actions/upload-artifact@v4
@@ -47,7 +41,7 @@ jobs:
       - name: 🏷️ Create GitHub Release & Upload EXE
         uses: ncipollo/release-action@v1
         with:
-          tag: v${{ github.run_number }}            # `v1`, `v2`, …
+          tag: v${{ github.run_number }}
           release-name: Release ${{ github.run_number }}
           assets: dist/audiomix.exe
           overwrite: true
