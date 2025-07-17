@@ -1,5 +1,9 @@
 name: Build and Publish EXE
 
+# Grant the token permission to create/releases and upload assets
+permissions:
+  contents: write
+
 on:
   push:
     branches:
@@ -37,7 +41,7 @@ jobs:
       - name: 🏷️ Create GitHub Release & Upload EXE
         uses: ncipollo/release-action@v1
         with:
-          tag: v${{ github.run_number }}            # auto‑incrementing tag: v1, v2, …
+          tag: v${{ github.run_number }}            # `v1`, `v2`, ...
           release-name: Release ${{ github.run_number }}
           assets: dist/audiomix.exe
           overwrite: true
