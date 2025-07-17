@@ -7,6 +7,17 @@ from tkinter import ttk, messagebox
 import sounddevice as sd
 import numpy as np
 
+# Helper to find bundled resources in onefile EXE
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller --onefile."""
+    base_path = getattr(sys, "_MEIPASS", os.path.dirname(__file__))
+    return os.path.join(base_path, relative_path)
+
+# Paths to VB‑Cable installer and icon, inside the bundled VB/ folder
+VB_INSTALLER   = resource_path(os.path.join("VB", "VBCABLE_Setup_x64.exe"))
+VB_ICON_PATH   = resource_path(os.path.join("VB", "icon.ico"))
+VB_DEVICE_NAME = "CABLE Input (VB-Audio Virtual Cable)"
+
 # Retro 8‑bit style
 tk_pixel_font = ("Courier", 16, "bold")
 BUTTON_STYLE = {
@@ -19,29 +30,28 @@ BUTTON_STYLE = {
     "relief": "ridge"
 }
 
-VB_INSTALLER = os.path.join(os.path.dirname(__file__), "VB", "VBCABLE_Setup_x64.exe")
-VB_DEVICE_NAME = "CABLE Input (VB-Audio Virtual Cable)"
-
 def check_and_install_vb():
-    """If VB-Cable isn’t present, run the installer silently."""
+    """If VB‑Cable isn’t present among outputs, run its silent installer (requires Admin)."""
     devices = sd.query_devices()
-    outputs = [d['name'] for d in devices if d['max_output_channels'] > 0]
+    outputs = [d["name"] for d in devices if d["max_output_channels"] > 0]
     if VB_DEVICE_NAME in outputs:
-        return  # already installed
+        return  # already there
 
+    # Confirm installer is bundled
     if not os.path.isfile(VB_INSTALLER):
         messagebox.showerror(
             "VB‑Cable Missing",
-            f"Couldn’t find installer at:\n{VB_INSTALLER}"
+            f"Installer not found at:\n{VB_INSTALLER}"
         )
         sys.exit(1)
 
-    # Ask user for elevation if needed
+    # Check admin rights
+    import ctypes
     if not ctypes.windll.shell32.IsUserAnAdmin():
         messagebox.showinfo(
             "Admin Required",
-            "VB‑Cable needs to install a driver.\n"
-            "Please re-run this app as Administrator."
+            "VB‑Cable installation requires Administrator privileges.\n"
+            "Please restart this app as Administrator."
         )
         sys.exit(1)
 
@@ -51,27 +61,32 @@ def check_and_install_vb():
     except subprocess.CalledProcessError as e:
         messagebox.showerror(
             "Install Failed",
-            f"VB‑Cable installer returned error {e.returncode}"
+            f"VB‑Cable installer returned error code {e.returncode}."
         )
         sys.exit(1)
 
     messagebox.showinfo(
         "Installed",
         "VB‑Audio Virtual Cable installed successfully.\n"
-        "Restarting device list…"
+        "Please restart the app to refresh device list."
     )
+    sys.exit(0)
 
 class AudioMixerApp:
     def __init__(self, root):
         self.root = root
         root.title("8‑Bit Audio Mixer")
+        # If you want to set the window icon:
+        # root.iconbitmap(VB_ICON_PATH)
+
         root.configure(bg="#222")
 
-        # (Re)load devices
-        self.devices = sd.query_devices()
-        self.input_names  = [d['name'] for d in self.devices if d['max_input_channels'] > 0]
-        self.output_names = [d['name'] for d in self.devices if d['max_output_channels']> 0]
+        # Load devices
+        self.devices      = sd.query_devices()
+        self.input_names  = [d["name"] for d in self.devices if d["max_input_channels"] > 0]
+        self.output_names = [d["name"] for d in self.devices if d["max_output_channels"] > 0]
 
+        # UI
         frame = tk.Frame(root, bg="#222")
         frame.pack(padx=10, pady=10)
 
@@ -89,7 +104,7 @@ class AudioMixerApp:
           .grid(row=2, column=0, sticky="e")
         self.combo_out = ttk.Combobox(frame, values=self.output_names, font=tk_pixel_font)
         self.combo_out.grid(row=2, column=1)
-        # Pre-select VB‑Cable if available
+        # Pre‑select VB‑Cable if present, else first
         if VB_DEVICE_NAME in self.output_names:
             self.combo_out.set(VB_DEVICE_NAME)
         else:
@@ -97,12 +112,12 @@ class AudioMixerApp:
 
         btn_frame = tk.Frame(root, bg="#222")
         btn_frame.pack(pady=10)
-        self.btn_start = tk.Button(btn_frame, text="START", command=self.start,  **BUTTON_STYLE)
+        self.btn_start = tk.Button(btn_frame, text="START",  command=self.start, **BUTTON_STYLE)
         self.btn_start.grid(row=0, column=0, padx=5)
-        self.btn_stop  = tk.Button(btn_frame, text="STOP",  command=self.stop, **BUTTON_STYLE, state="disabled")
+        self.btn_stop  = tk.Button(btn_frame, text="STOP",   command=self.stop,  **BUTTON_STYLE, state="disabled")
         self.btn_stop.grid(row=0, column=1, padx=5)
 
-        # State
+        # Mixing state
         self.blocksize = 1024
         self.running   = False
         self.thread    = None
@@ -119,13 +134,13 @@ class AudioMixerApp:
 
     def start(self):
         # Resolve device indices
-        idx_a = self.input_names.index(self.combo_a.get())
-        idx_b = self.input_names.index(self.combo_b.get())
-        idx_o = self.output_names.index(self.combo_out.get())
+        ia = self.input_names.index(self.combo_a.get())
+        ib = self.input_names.index(self.combo_b.get())
+        io = self.output_names.index(self.combo_out.get())
 
-        dev_a = [i for i,d in enumerate(self.devices) if d['name']==self.input_names[idx_a]][0]
-        dev_b = [i for i,d in enumerate(self.devices) if d['name']==self.input_names[idx_b]][0]
-        dev_o = [i for i,d in enumerate(self.devices) if d['name']==self.output_names[idx_o]][0]
+        dev_a = next(i for i,d in enumerate(self.devices) if d["name"] == self.input_names[ia])
+        dev_b = next(i for i,d in enumerate(self.devices) if d["name"] == self.input_names[ib])
+        dev_o = next(i for i,d in enumerate(self.devices) if d["name"] == self.output_names[io])
 
         # Open streams
         self.stream_a = sd.InputStream(device=dev_a, channels=1,
@@ -151,23 +166,23 @@ class AudioMixerApp:
             return
         self.running = False
         self.thread.join()
+
         for s in (self.stream_a, self.stream_b, self.output):
             try:
-                s.stop(); s.close()
+                s.stop()
+                s.close()
             except:
                 pass
+
         self.btn_start.config(state="normal")
         self.btn_stop .config(state="disabled")
 
 if __name__ == "__main__":
-    # Must import here so messagebox works before GUI
-    import ctypes
-
-    root = tk.Tk()
-    # Before showing anything, ensure VB‑Cable
+    # Ensure VB‑Cable is installed before showing UI
     check_and_install_vb()
 
+    root = tk.Tk()
     style = ttk.Style(root)
-    style.theme_use('alt')
+    style.theme_use("alt")
     app = AudioMixerApp(root)
     root.mainloop()
