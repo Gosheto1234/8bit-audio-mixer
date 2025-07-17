@@ -1,6 +1,9 @@
+import os
+import sys
 import threading
+import subprocess
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import sounddevice as sd
 import numpy as np
 
@@ -16,18 +19,59 @@ BUTTON_STYLE = {
     "relief": "ridge"
 }
 
+VB_INSTALLER = os.path.join(os.path.dirname(__file__), "VB", "VBCABLE_Setup_x64.exe")
+VB_DEVICE_NAME = "CABLE Input (VB-Audio Virtual Cable)"
+
+def check_and_install_vb():
+    """If VB-Cable isn’t present, run the installer silently."""
+    devices = sd.query_devices()
+    outputs = [d['name'] for d in devices if d['max_output_channels'] > 0]
+    if VB_DEVICE_NAME in outputs:
+        return  # already installed
+
+    if not os.path.isfile(VB_INSTALLER):
+        messagebox.showerror(
+            "VB‑Cable Missing",
+            f"Couldn’t find installer at:\n{VB_INSTALLER}"
+        )
+        sys.exit(1)
+
+    # Ask user for elevation if needed
+    if not ctypes.windll.shell32.IsUserAnAdmin():
+        messagebox.showinfo(
+            "Admin Required",
+            "VB‑Cable needs to install a driver.\n"
+            "Please re-run this app as Administrator."
+        )
+        sys.exit(1)
+
+    # Run silent install
+    try:
+        subprocess.run([VB_INSTALLER, "/S"], check=True)
+    except subprocess.CalledProcessError as e:
+        messagebox.showerror(
+            "Install Failed",
+            f"VB‑Cable installer returned error {e.returncode}"
+        )
+        sys.exit(1)
+
+    messagebox.showinfo(
+        "Installed",
+        "VB‑Audio Virtual Cable installed successfully.\n"
+        "Restarting device list…"
+    )
+
 class AudioMixerApp:
     def __init__(self, root):
         self.root = root
         root.title("8‑Bit Audio Mixer")
         root.configure(bg="#222")
 
-        # Enumerate devices
+        # (Re)load devices
         self.devices = sd.query_devices()
         self.input_names  = [d['name'] for d in self.devices if d['max_input_channels'] > 0]
         self.output_names = [d['name'] for d in self.devices if d['max_output_channels']> 0]
 
-        # Build UI
         frame = tk.Frame(root, bg="#222")
         frame.pack(padx=10, pady=10)
 
@@ -45,7 +89,11 @@ class AudioMixerApp:
           .grid(row=2, column=0, sticky="e")
         self.combo_out = ttk.Combobox(frame, values=self.output_names, font=tk_pixel_font)
         self.combo_out.grid(row=2, column=1)
-        self.combo_out.set(self.output_names[0])  # default to first output
+        # Pre-select VB‑Cable if available
+        if VB_DEVICE_NAME in self.output_names:
+            self.combo_out.set(VB_DEVICE_NAME)
+        else:
+            self.combo_out.set(self.output_names[0])
 
         btn_frame = tk.Frame(root, bg="#222")
         btn_frame.pack(pady=10)
@@ -112,7 +160,13 @@ class AudioMixerApp:
         self.btn_stop .config(state="disabled")
 
 if __name__ == "__main__":
+    # Must import here so messagebox works before GUI
+    import ctypes
+
     root = tk.Tk()
+    # Before showing anything, ensure VB‑Cable
+    check_and_install_vb()
+
     style = ttk.Style(root)
     style.theme_use('alt')
     app = AudioMixerApp(root)
